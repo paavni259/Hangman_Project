@@ -1,0 +1,137 @@
+import random
+import math
+
+HANGMAN_PICS = ['''
+    +---+
+         |
+         |
+         |
+        ===''', '''
+    +---+
+    O   |
+        |
+        |
+       ===''', '''
+    +---+
+    O   |
+    |   |
+        |
+       ===''', '''
+    +---+
+    O   |
+   /|   |
+        |
+       ===''', '''
+    +---+
+    O   |
+   /|\  |
+        |
+       ===''', '''
+    +---+
+    O   |
+   /|\  |
+   /    |
+       ===''', '''
+    +---+
+    O   |
+   /|\  |
+   / \  |
+       ===''']
+barbie_words = ['barbie', 'ken', 'dreamhouse', 'pink', 'fashion', 'glamour', 'princess', 'sparkle', 'diva', 'puppy']
+MATH_PROBLEMS = [
+    ('2 + 2', '4'),
+    ('6 * 3', '18'),
+    ('10 / 2', '5'),
+    ('12 - 8', '4'),
+    ('9 * 9', '81')
+]
+
+def getRandomWord(wordList):
+    """
+    Returns a random string from the passed list of strings.
+    """
+    return random.choice(wordList)
+
+def displayBoard(missedLetters, correctLetters, secretWord):
+    print()
+    print(HANGMAN_PICS[len(missedLetters)])
+
+    print()
+    print('Missed letters:', ' '.join(missedLetters))
+
+    blanks = ''
+    for letter in secretWord:
+        if letter in correctLetters:
+            blanks += letter
+        else:
+            blanks += '_'
+    print(' '.join(blanks))
+
+def getGuess(alreadyGuessed):
+    """
+    Returns the letter the player entered.
+    Ensures the player enters a single letter and nothing else.
+    """
+    while True:
+        print('Please guess a letter (or type "h" for hint):')
+        guess = input().lower()
+        if guess == 'h':
+            math_problem, answer = random.choice(MATH_PROBLEMS)
+            print(f"Solve this math problem to get a hint: {math_problem}")
+            user_answer = input("Your answer: ")
+            if user_answer.lower() == answer.lower():
+                return random.choice(secretWord)
+            else:
+                print("Incorrect answer. Try again or continue guessing letters.")
+        elif len(guess) != 1:
+            print('Only a single letter is allowed.')
+        elif guess in alreadyGuessed:
+            print('You have already guessed that letter. Choose again.')
+        elif guess not in 'abcdefghijklmnopqrstuvwxyz':
+            print('Please enter a letter from the alphabet.')
+        else:
+            return guess
+
+def playAgain():
+    """
+    Returns True if the player wants to play again, False otherwise.
+    """
+    print('Would you like to play again? (y)es or (n)o')
+    return input().lower().startswith('y')
+
+print('|H_A_N_G_M_A_N|')
+missedLetters = ''
+correctLetters = ''
+secretWord = getRandomWord(barbie_words)
+gameIsDone = False
+
+# Now for the game itself:
+while True:
+    displayBoard(missedLetters, correctLetters, secretWord)
+    # Let the player enter a letter:
+    guess = getGuess(missedLetters + correctLetters)
+
+    if guess in secretWord:
+        correctLetters += guess
+        # Check to see if the player has won:
+        if all(letter in correctLetters for letter in secretWord):
+            print('You guessed it!')
+            print('The secret word is "' + secretWord + '"! You win!')
+            gameIsDone = True
+    else:
+        missedLetters += guess
+
+        # Check if the player has guessed too many times and lost.
+        if len(missedLetters) == len(HANGMAN_PICS) -1:
+            displayBoard(missedLetters, correctLetters, secretWord)
+            print('You have run out of guesses!\nAfter ' + str(len(missedLetters)) + ' missed guesses and ' + str(len(correctLetters)) + ' correct guesses, the word was "' + secretWord + '"')
+            gameIsDone = True
+    # If the game is done, ask the player to try again.
+    if gameIsDone:
+        if playAgain():
+            missedLetters = ''
+            correctLetters = ''
+            gameIsDone = False
+            secretWord = getRandomWord(barbie_words)
+        else:
+            break
