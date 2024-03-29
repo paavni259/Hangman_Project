@@ -1,6 +1,8 @@
 import random
+import string
 import math
 
+# Hangman ASCII art
 HANGMAN_PICS = ['''
     +---+
          |
@@ -37,101 +39,139 @@ HANGMAN_PICS = ['''
    /|\  |
    / \  |
        ===''']
-barbie_words = ['barbie', 'ken', 'dreamhouse', 'pink', 'fashion', 'glamour', 'princess', 'sparkle', 'diva', 'puppy']
-MATH_PROBLEMS = [
-    ('2 + 2', '4'),
-    ('6 * 3', '18'),
-    ('10 / 2', '5'),
-    ('12 - 8', '4'),
-    ('9 * 9', '81')
-]
 
-def getRandomWord(wordList):
-    """
-    Returns a random string from the passed list of strings.
-    """
-    return random.choice(wordList)
+# Themes and words
+themes = {
+    "Animals": {
+        "Easy": ['ant', 'cat', 'dog', 'bat', 'owl'],
+        "Moderate": ['elephant', 'giraffe', 'hippo', 'lion', 'tiger'],
+        "Hard": ['crocodile', 'gorilla', 'leopard', 'rhinoceros', 'zebra']
+    },
+    "Fruits": {
+        "Easy": ['apple', 'banana', 'grape', 'kiwi', 'mango'],
+        "Moderate": ['orange', 'peach', 'pear', 'pineapple', 'strawberry'],
+        "Hard": ['blueberry', 'raspberry', 'watermelon', 'blackberry', 'pomegranate']
+    },
+    "Countries": {
+        "Easy": ['brazil', 'canada', 'china', 'egypt', 'france'],
+        "Moderate": ['india', 'japan', 'mexico', 'russia', 'spain'],
+        "Hard": ['australia', 'germany', 'italy', 'netherlands', 'united kingdom']
+    }
+}
 
-def displayBoard(missedLetters, correctLetters, secretWord):
-    print()
-    print(HANGMAN_PICS[len(missedLetters)])
+# Difficulty levels based on age
+age_difficulty_levels = {
+    "Child": "Easy",    # Simple words for children
+    "Teen": "Moderate",   # Moderate words for teens
+    "Adult": "Hard"  # Challenging words for adults
+}
 
-    print()
-    print('Missed letters:', ' '.join(missedLetters))
-
-    blanks = ''
-    for letter in secretWord:
-        if letter in correctLetters:
-            blanks += letter
-        else:
-            blanks += '_'
-    print(' '.join(blanks))
-
-def getGuess(alreadyGuessed):
-    """
-    Returns the letter the player entered.
-    Ensures the player enters a single letter and nothing else.
-    """
+def get_age_group():
     while True:
-        print('Please guess a letter (or type "h" for hint):')
-        guess = input().lower()
-        if guess == 'h':
-            math_problem, answer = random.choice(MATH_PROBLEMS)
-            print(f"Solve this math problem to get a hint: {math_problem}")
-            user_answer = input("Your answer: ")
-            if user_answer.lower() == answer.lower():
-                return random.choice(secretWord)
+        try:
+            age = int(input("Enter your age: "))
+            if age < 0:
+                print("Please enter a valid age.")
+            elif age <= 7:
+                return "Child"
+            elif age <= 13:
+                return "Teen"
             else:
-                print("Incorrect answer. Try again or continue guessing letters.")
-        elif len(guess) != 1:
-            print('Only a single letter is allowed.')
-        elif guess in alreadyGuessed:
-            print('You have already guessed that letter. Choose again.')
-        elif guess not in 'abcdefghijklmnopqrstuvwxyz':
-            print('Please enter a letter from the alphabet.')
+                return "Adult"
+        except ValueError:
+            print("Please enter a valid age.")
+
+def select_theme(age_group):
+    return ["Animals", "Fruits", "Countries"]
+
+def select_word_difficulty(theme, difficulty):
+    return random.choice(themes[theme][difficulty])
+
+def display_board(missed_letters, correct_letters, secret_word):
+    print(HANGMAN_PICS[len(missed_letters)])
+    print("\nMissed letters:", " ".join(missed_letters))
+
+    blanks = ""
+    for letter in secret_word:
+        if letter in correct_letters:
+            blanks += letter + " "
+        else:
+            blanks += "_ "
+    print("\n" + blanks)
+
+def get_guess(already_guessed):
+    while True:
+        guess = input("Please guess a letter (or enter 'h' for a hint): ").lower()
+        if len(guess) != 1:
+            print("Only a single letter is allowed.")
+        elif guess in already_guessed:
+            print("You have already guessed that letter. Choose again.")
+        elif guess not in string.ascii_lowercase and guess != 'h':
+            print("Please enter a letter from the alphabet.")
         else:
             return guess
 
-def playAgain():
-    """
-    Returns True if the player wants to play again, False otherwise.
-    """
-    print('Would you like to play again? (y)es or (n)o')
-    return input().lower().startswith('y')
+def play_again():
+    return input("Would you like to play again? (y)es or (n)o: ").lower().startswith('y')
 
-print('|H_A_N_G_M_A_N|')
-missedLetters = ''
-correctLetters = ''
-secretWord = getRandomWord(barbie_words)
-gameIsDone = False
+def get_hint(secret_word):
+    return random.choice(secret_word)
 
-# Now for the game itself:
-while True:
-    displayBoard(missedLetters, correctLetters, secretWord)
-    # Let the player enter a letter:
-    guess = getGuess(missedLetters + correctLetters)
+def main():
+    print("|_H_A_N_G_M_A_N_|")
+    while True:
+        age_group = get_age_group()
+        available_themes = select_theme(age_group)
 
-    if guess in secretWord:
-        correctLetters += guess
-        # Check to see if the player has won:
-        if all(letter in correctLetters for letter in secretWord):
-            print('You guessed it!')
-            print('The secret word is "' + secretWord + '"! You win!')
-            gameIsDone = True
-    else:
-        missedLetters += guess
+        print("Available themes:")
+        for i, theme in enumerate(available_themes, 1):
+            print(f"{i}. {theme}")
 
-        # Check if the player has guessed too many times and lost.
-        if len(missedLetters) == len(HANGMAN_PICS) -1:
-            displayBoard(missedLetters, correctLetters, secretWord)
-            print('You have run out of guesses!\nAfter ' + str(len(missedLetters)) + ' missed guesses and ' + str(len(correctLetters)) + ' correct guesses, the word was "' + secretWord + '"')
-            gameIsDone = True
-    # If the game is done, ask the player to try again.
-    if gameIsDone:
-        if playAgain():
-            missedLetters = ''
-            correctLetters = ''
-            gameIsDone = False
-            secretWord = getRandomWord(barbie_words)
-        else:
+        theme_choice = int(input("Choose a theme (enter the corresponding number): "))
+        selected_theme = available_themes[theme_choice - 1]
+
+        word_difficulty = age_difficulty_levels[age_group]
+        word = select_word_difficulty(selected_theme, word_difficulty)
+
+        missed_letters = ""
+        correct_letters = ""
+
+        while True:
+            display_board(missed_letters, correct_letters, word)
+            guess = get_guess(missed_letters + correct_letters)
+
+            if guess == 'h':
+                num1 = random.randint(1, 10)
+                num2 = random.randint(1, 10)
+                operation = random.choice(['+', '-', '*'])
+                problem = f"What is {num1} {operation} {num2}?"
+                print(f"Solve this math problem to get a hint: {problem}")
+                answer = eval(str(num1) + operation + str(num2))
+                user_answer = input("Enter your answer: ")
+                if user_answer == str(answer):
+                    hint = get_hint(word)
+                    print(f"Hint: The secret word includes the letter '{hint}'. Try it!")
+                else:
+                    print("Incorrect answer. Hint not provided.")
+                continue
+
+            if guess in word:
+                correct_letters += guess
+                all_letters_found = all(letter in correct_letters for letter in word)
+                if all_letters_found:
+                    print("You guessed it!")
+                    print(f"The secret word is '{word}'! You win!")
+                    break
+            else:
+                missed_letters += guess
+
+            if len(missed_letters) == len(HANGMAN_PICS) - 1:
+                display_board(missed_letters, correct_letters, word)
+                print(f"You have run out of guesses! The word was '{word}'.")
+                break
+
+        if not play_again():
             break
+
+if __name__ == "__main__":
+    main()
