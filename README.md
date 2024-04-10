@@ -5,7 +5,7 @@ Hangman is a classic word guessing game where players try to guess a secret word
 ## Team Members
 
 - Paavni - Manager
-- Saksham - Developer
+- Saksham - Developer and tester
 - Manpreet - Tester and Developer
 
 ## Description
