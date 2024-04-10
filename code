@@ -1,177 +1,187 @@
+import pygame
 import random
-import string
-import math
+import openai
 
-# Hangman ASCII art
-HANGMAN_PICS = ['''
-    +---+
-         |
-         |
-         |
-        ===''', '''
-    +---+
-    O   |
-        |
-        |
-       ===''', '''
-    +---+
-    O   |
-    |   |
-        |
-       ===''', '''
-    +---+
-    O   |
-   /|   |
-        |
-       ===''', '''
-    +---+
-    O   |
-   /|\  |
-        |
-       ===''', '''
-    +---+
-    O   |
-   /|\  |
-   /    |
-       ===''', '''
-    +---+
-    O   |
-   /|\  |
-   / \  |
-       ===''']
+pygame.init()
+winHeight = 480
+winWidth = 700
+win = pygame.display.set_mode((winWidth, winHeight))
 
-# Themes and words
-themes = {
-    "Animals": {
-        "Easy": ['ant', 'cat', 'dog', 'bat', 'owl'],
-        "Moderate": ['elephant', 'giraffe', 'hippo', 'lion', 'tiger'],
-        "Hard": ['crocodile', 'gorilla', 'leopard', 'rhinoceros', 'zebra']
-    },
-    "Fruits": {
-        "Easy": ['apple', 'banana', 'grape', 'kiwi', 'mango'],
-        "Moderate": ['orange', 'peach', 'pear', 'pineapple', 'strawberry'],
-        "Hard": ['blueberry', 'raspberry', 'watermelon', 'blackberry', 'pomegranate']
-    },
-    "Countries": {
-        "Easy": ['brazil', 'canada', 'china', 'egypt', 'france'],
-        "Moderate": ['india', 'japan', 'mexico', 'russia', 'spain'],
-        "Hard": ['australia', 'germany', 'italy', 'netherlands', 'united kingdom']
-    }
-}
+# Colors
+LIGHT_BLUE = (173, 216, 230)
+DARK_BLUE = (0, 102, 204)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 
-# Difficulty levels based on age
-age_difficulty_levels = {
-    "Child": "Easy",    # Simple words for children
-    "Teen": "Moderate",   # Moderate words for teens
-    "Adult": "Hard"  # Challenging words for adults
-}
+# Fonts
+btn_font = pygame.font.SysFont("arial", 20)
+guess_font = pygame.font.SysFont("monospace", 24)
+lost_font = pygame.font.SysFont('arial', 45)
 
-def get_age_group():
-    while True:
-        try:
-            age = int(input("Enter your age: "))
-            if age < 0:
-                print("Please enter a valid age.")
-            elif age <= 7:
-                return "Child"
-            elif age <= 13:
-                return "Teen"
-            else:
-                return "Adult"
-        except ValueError:
-            print("Please enter a valid age.")
+# Global Variables
+word = ''
+buttons = []
+guessed = []
+hangmanPics = [pygame.image.load('hangman0.png'), pygame.image.load('hangman1.png'),
+               pygame.image.load('hangman2.png'), pygame.image.load('hangman3.png'),
+               pygame.image.load('hangman4.png'), pygame.image.load('hangman5.png'),
+               pygame.image.load('hangman6.png')]
 
-def select_theme(age_group):
-    return ["Animals", "Fruits", "Countries"]
+limbs = 0
 
-def select_word_difficulty(theme, difficulty):
-    return random.choice(themes[theme][difficulty])
+# OpenAI API key
+openai.api_key = 'your_api_key'
 
-def display_board(missed_letters, correct_letters, secret_word):
-    print(HANGMAN_PICS[len(missed_letters)])
-    print("\nMissed letters:", " ".join(missed_letters))
+def redraw_game_window():
+    global guessed, hangmanPics, limbs
+    win.fill(LIGHT_BLUE)
+    # Drawing buttons
+    for button in buttons:
+        color = DARK_BLUE if button[4] else GREEN
+        pygame.draw.circle(win, color, (button[1], button[2]), button[3])
+        label = btn_font.render(chr(button[5]), 1, BLACK)
+        win.blit(label, (button[1] - (label.get_width() / 2), button[2] - (label.get_height() / 2)))
 
-    blanks = ""
-    for letter in secret_word:
-        if letter in correct_letters:
-            blanks += letter + " "
-        else:
-            blanks += "_ "
-    print("\n" + blanks)
+    # Drawing guessed word
+    spaced = spacedOut(word, guessed)
+    label1 = guess_font.render(spaced, 1, BLACK)
+    rect = label1.get_rect()
+    length = rect[2]
+    win.blit(label1, (winWidth / 2 - length / 2, 400))
 
-def get_guess(already_guessed):
-    while True:
-        guess = input("Please guess a letter (or enter 'h' for a hint): ").lower()
-        if len(guess) != 1:
-            print("Only a single letter is allowed.")
-        elif guess in already_guessed:
-            print("You have already guessed that letter. Choose again.")
-        elif guess not in string.ascii_lowercase and guess != 'h':
-            print("Please enter a letter from the alphabet.")
-        else:
-            return guess
+    # Drawing hangman image
+    pic = hangmanPics[limbs]
+    win.blit(pic, (winWidth / 2 - pic.get_width() / 2 + 20, 150))
+    pygame.display.update()
 
-def play_again():
-    return input("Would you like to play again? (y)es or (n)o: ").lower().startswith('y')
+def get_random_word():
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Generate a random word for Hangman.",
+            max_tokens=1
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print("Error fetching random word:", e)
+        return None
 
-def get_hint(secret_word):
-    return random.choice(secret_word)
+def random_word():
+    fetched_word = get_random_word()
+    if fetched_word:
+        return fetched_word
+    else:
+        with open('words.txt') as file:
+            words = file.readlines()
+        return random.choice(words).strip()
 
-def main():
-    print("|_H_A_N_G_M_A_N_|")
-    while True:
-        age_group = get_age_group()
-        available_themes = select_theme(age_group)
+def hang(guess):
+    return guess.lower() not in word.lower()
 
-        print("Available themes:")
-        for i, theme in enumerate(available_themes, 1):
-            print(f"{i}. {theme}")
+def spacedOut(word, guessed=[]):
+    spacedWord = ''
+    guessedLetters = guessed
+    for x in range(len(word)):
+        if word[x] != ' ':
+            spacedWord += '_ '
+            for i in range(len(guessedLetters)):
+                if word[x].upper() == guessedLetters[i]:
+                    spacedWord = spacedWord[:-2]
+                    spacedWord += word[x].upper() + ' '
+        elif word[x] == ' ':
+            spacedWord += ' '
+    return spacedWord
 
-        theme_choice = int(input("Choose a theme (enter the corresponding number): "))
-        selected_theme = available_themes[theme_choice - 1]
+def buttonHit(x, y):
+    for button in buttons:
+        if x < button[1] + 20 and x > button[1] - 20:
+            if y < button[2] + 20 and y > button[2] - 20:
+                return button[5]
+    return None
 
-        word_difficulty = age_difficulty_levels[age_group]
-        word = select_word_difficulty(selected_theme, word_difficulty)
+def end(winner=False):
+    global limbs
+    lostTxt = 'You Lost, press any key to play again...'
+    winTxt = 'WINNER!, press any key to play again...'
+    redraw_game_window()
+    pygame.time.delay(1000)
+    win.fill(LIGHT_BLUE)
 
-        missed_letters = ""
-        correct_letters = ""
+    if winner:
+        label = lost_font.render(winTxt, 1, BLACK)
+    else:
+        label = lost_font.render(lostTxt, 1, BLACK)
 
-        while True:
-            display_board(missed_letters, correct_letters, word)
-            guess = get_guess(missed_letters + correct_letters)
+    wordTxt = lost_font.render(word.upper(), 1, BLACK)
+    wordWas = lost_font.render('The phrase was: ', 1, BLACK)
 
-            if guess == 'h':
-                num1 = random.randint(1, 10)
-                num2 = random.randint(1, 10)
-                operation = random.choice(['+', '-', '*'])
-                problem = f"What is {num1} {operation} {num2}?"
-                print(f"Solve this math problem to get a hint: {problem}")
-                answer = eval(str(num1) + operation + str(num2))
-                user_answer = input("Enter your answer: ")
-                if user_answer == str(answer):
-                    hint = get_hint(word)
-                    print(f"Hint: The secret word includes the letter '{hint}'. Try it!")
+    win.blit(wordTxt, (winWidth / 2 - wordTxt.get_width() / 2, 295))
+    win.blit(wordWas, (winWidth / 2 - wordWas.get_width() / 2, 245))
+    win.blit(label, (winWidth / 2 - label.get_width() / 2, 140))
+    pygame.display.update()
+    again = True
+    while again:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                again = False
+    reset()
+
+def reset():
+    global limbs, guessed, buttons, word
+    for button in buttons:
+        button[4] = True
+    limbs = 0
+    guessed = []
+    word = random_word()
+
+# Setup buttons
+increase = round(winWidth / 13)
+for i in range(26):
+    if i < 13:
+        y = 40
+        x = 25 + (increase * i)
+    else:
+        x = 25 + (increase * (i - 13))
+        y = 85
+    buttons.append([LIGHT_BLUE, x, y, 20, True, 65 + i])
+
+word = random_word()
+inPlay = True
+
+while inPlay:
+    redraw_game_window()
+    pygame.time.delay(10)
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            inPlay = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                inPlay = False
+            elif event.key == pygame.K_h:  # Check for 'h' key press for hint
+                math_problem = "What is the result of 2 + 2 * 2?"
+                user_answer = input(math_problem)
+                if user_answer == "6":  # If the answer is correct, provide hint
+                    hint_sentence = "Hint: It's something related to nature."
+                    print(hint_sentence)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            clickPos = pygame.mouse.get_pos()
+            letter = buttonHit(clickPos[0], clickPos[1])
+            if letter is not None:
+                guessed.append(chr(letter))
+                buttons[letter - 65][4] = False
+                if hang(chr(letter)):
+                    if limbs != 5:
+                        limbs += 1
+                    else:
+                        end()
                 else:
-                    print("Incorrect answer. Hint not provided.")
-                continue
+                    print(spacedOut(word, guessed))
+                    if spacedOut(word, guessed).count('_') == 0:
+                        end(True)
 
-            if guess in word:
-                correct_letters += guess
-                all_letters_found = all(letter in correct_letters for letter in word)
-                if all_letters_found:
-                    print("You guessed it!")
-                    print(f"The secret word is '{word}'! You win!")
-                    break
-            else:
-                missed_letters += guess
-
-            if len(missed_letters) == len(HANGMAN_PICS) - 1:
-                display_board(missed_letters, correct_letters, word)
-                print(f"You have run out of guesses! The word was '{word}'.")
-                break
-
-        if not play_again():
-            break
-
-if __name__ == "__main__":
-    main()
+pygame.quit()
